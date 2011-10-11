@@ -1,0 +1,518 @@
+@include template.mkdoc
+
+@c
+@c Modules definitions
+@c
+
+@moduledef{HID device descriptor}
+ @short Device definition
+ @order 104
+@end moduledef
+
+@moduledef{HID device client}
+  @short Human interface device high-level client
+  @order 105
+@end moduledef
+
+@moduledef{HID rudp client}
+  @short Human interface device low-level client
+  @order 103
+@end moduledef
+
+@insert title
+
+@c
+@c Plain Documentation
+@c
+
+@section HT {Overview}
+  Foils-HID is a library for creating Freebox Network HID devices.  It
+  uses libela for event loop abstraction and librudp for low-level UDP
+  transport.  Libela makes it abstract from a particular event loop.
+  In this way, it should be embeddable in any GUI toolkit.
+@end section
+
+@section H {Table of contents}
+ @insert toc
+@end section
+
+@section HTP {User APIs}
+
+  High-level API is prefered over other the low-level one.
+
+  @section {High-level API}
+
+    @section {Description}
+      High-level API takes an array of device descriptors and
+      creates a client object.  Libary code takes care of reconnecting,
+      handling device grabs and resending device descriptors on
+      connection.
+    @end section
+
+    @section {Usage}
+      Devices are described in a @ref
+      foils_hid_device_descriptor. This references the three standard
+      HID descriptors: report descriptor, physical descriptor and string
+      descriptor.  Report descriptor is the only mandatory one.
+      Physical descriptor is only mandatory for joystick/gamepad devices.
+
+      Client may be connected to one server at a time. Connection is
+      initiated through either @ref foils_hid_client_connect_hostname,
+      @ref foils_hid_client_connect_ipv4, or @ref
+      foils_hid_client_connect_ipv6,
+
+      User code may enable and disable devices selectively with @ref
+      foils_hid_device_enable and @ref foils_hid_device_disable. On an
+      enabled device, user may send input and feature reports with @ref
+      foils_hid_input_report_send and @ref
+      foils_hid_feature_report_send.
+
+      Reliability of transport is selected on a per-report basis.
+      Reports containing only absolute/relative data (like keyboard,
+      mouse, joystick) should be sent unreliably.  Reports with data
+      that are transcient should be sent reliably (like unicode).
+    @end section
+
+    @section {Example}
+      First thing to do is to create a set of device definitions.
+
+      This code declares a report descriptor and the associated report
+      structure.  This makes the HID device self-contained: all the
+      data sent by the device are in a described fixed format.
+
+      @example mouse.c:report_definition
+
+      This code declares a mouse descriptor and an array of one device
+      containing the said descriptor.  Physical and string descriptors
+      are not filled.
+      @example mouse.c:device_definition
+
+      Then there is the main entry point. First you must create an
+      event loop. See libela documentation for alternative ways to
+      create an event loop.
+
+      @example mouse.c:event_loop
+
+      Then initialize the client using the device descriptors.
+
+      @example mouse.c:client
+
+      Finally, tell the client to connect a given host.
+
+      @example mouse.c:client_connect
+
+      Here we enable the first device, this will make it available to
+      the server as soon as it connects.
+
+      @example mouse.c:device_enable
+
+      Then we can run the event loop.
+
+      @example mouse.c:run
+
+      Once the event loop quits, we can cleanup the leftovers.
+
+      @example mouse.c:cleanup
+
+      Inside the event loop, some events (like GUI) can trigger
+      emission of reports. Here is some code sending some circular
+      mouse movements:
+
+      @example mouse.c:sending
+
+    @end section
+
+  @end section
+
+  @section {Low-level API}
+    Low-level API is just a protocol mapping above librudp. It does
+    not handle a list of devices like the high-level one.
+
+    Low level API handles:
+    @list
+      @item Protocol datatypes and serialization (payload
+        serialization, endianness, etc.),
+      @item Protocol commands and semantics,
+      @item rudp interface,
+      @item HID device enumeration (send device presence
+        notifications, handle grabs, etc.).
+    @end list
+
+    Low-level API user must handle its own device list, create the
+    device descriptors and send device descriptors to the server each
+    time the connection is established.
+
+    Main feature of the low-level API is to be able to create dynamic
+    devices, i.e. register devices unknown at time of initialization.
+
+    Once you understand the @xref {protocol}, you should understand
+    the API quite well. @see {@foils/rudp_hid_client.h}.
+  @end section
+
+@end section
+
+@section HTP {HID notes}
+
+  HID stands for "Human Interface Device".  It defines a standard for
+  interoperable interface devices (It used to be input-oriented, but
+  standard commitee found there was also output, hence "interface").
+  HID is well thought for most parts.  It handles both backwards
+  compatibility and future evolutions.  It was primarily developed for
+  USB, but was taken verbatim for Bluetooth.
+
+  HID is defined on the @em {USB Implementers' Forum} pages on @url
+  {http://www.usb.org/developers/hidpage/}.  Two documents define the
+  whole HID (Check the website for updates):
+  @list
+    @item @url
+      {http://www.usb.org/developers/devclass_docs/HID1_11.pdf}
+      {Device Class Definition for Human Interface Devices}, v. 1.11.
+
+      This document defines the core protocol, report descriptor format,
+      data format, general guidelines, etc.
+
+    @item @url
+      {http://www.usb.org/developers/devclass_docs/Hut1_12v2.pdf} {HID
+      Usage Tables}, v. 1.12.
+
+      This document defines support for various kind of devices.  At
+      first, it defines support for legacy devices, like Keyboards and
+      Mice.  Then it defines usual Joysticks and Gamepads.  Later on,
+      it defines "Consumer control". Finally comes
+      application-specific definitions.
+
+  @end list
+
+  @section {HID notes}
+
+    Some various notes for device designers:
+    @list
+
+      @item All values are little-endian in reports (if multibyte);
+
+      @item A report ID is mandatory if more than one report may be
+        emitted by a device.  If any report has a report ID set, all
+        reports must have one;
+
+      @item Report ID 0 may not exist explicitely (i.e. it is only
+        valid when no report IDs are defined). In other words, if
+        multiple reports are present, they may not use report ID 0;
+
+      @item HID-RD (@url
+        {http://sourceforge.net/projects/digimend/files/hidrd/}) is a
+        great tool for HID report descriptor parsing and creation.
+
+    @end list
+
+  @end section
+
+  @section {Dos and Donts}
+
+    For a Set-top box control API, "Consumer control" should be enough,
+    but as new STBs also have a browser, they need an usual
+    Keyboard/mouse API.
+    
+    @section {Remote control}
+
+      A remote control should find all its needs in the "Consumer
+      control" usage page (HID Usage Tables, section 15, p.75).  There
+      are commands for about anything an usual remote control has.
+      Keypad, playback control, menu navigation, etc.
+
+      Basic remote control only needs to define one input report with
+      one item containing remote control.  Report descriptor can look
+      like:
+
+      @code
+        0x05, 0x0C,       /* Usage Page (Consumer),                    */
+        0x09, 0x01,       /* Usage (Consumer Control),                 */
+        0xA1, 0x01,       /* Collection (Application),                 */
+
+        /* 1 "Consumer" input item */
+        0x95, 0x01,       /*  Report Count (1),                        */
+        0x75, 0x10,       /*  Report Size (16),                        */
+        0x19, 0x00,       /*  Usage Minimum (Consumer Control),        */
+        0x2A, 0x9C, 0x02, /*  Usage Maximum (AC Distribute Vertically),*/
+        0x15, 0x00,       /*  Logical Minimum (1),                     */
+        0x26, 0x8C, 0x02, /*  Logical Maximum (652),                   */
+        0x80,             /*  Input,                                   */
+
+        0xC0,             /* End Collection,                           */
+      @end code
+
+      This defines one 16-bit input item containing any value in the
+      consumer page.  Then any sent value corresponds to its usage.
+      Expected report data is a 16 bit payload, containing a
+      little-endian value. 0 is a special "noop" value.
+
+      Matching C structure is:
+
+      @code
+    struct report
+    {
+        uint16_t consumer;
+    };
+      @end code
+    @end section
+
+    @section {Mouse}
+
+      A mouse report is defined in the HID standard (HID 1.11, secion
+      B.2, p. 61).  Nevertheless, if we do not expect BIOS compatibility
+      (which we dont), we can modify the report layout to suit our
+      needs.
+
+      Report descriptor can look like:
+
+      @code
+        0x05, 0x01,          /*  Usage Page (Desktop),           */
+        0x09, 0x02,          /*  Usage (Mouse),                  */
+        0xA1, 0x01,          /*  Collection (Application),       */
+
+        /* 3 "Button" input items */
+        0x05, 0x09,          /*      Usage Page (Button),        */
+        0x19, 0x01,          /*      Usage Minimum (01h),        */
+        0x29, 0x03,          /*      Usage Maximum (03h),        */
+        0x15, 0x00,          /*      Logical Minimum (0),        */
+        0x25, 0x01,          /*      Logical Maximum (1),        */
+        0x75, 0x01,          /*      Report Size (1),            */
+        0x95, 0x03,          /*      Report Count (3),           */
+        0x81, 0x02,          /*      Input (Variable),           */
+
+        /* 5 padding bits */
+        0x75, 0x05,          /*      Report Size (5),            */
+        0x95, 0x01,          /*      Report Count (1),           */
+        0x81, 0x01,          /*      Input (Constant),           */
+
+        /* 3 "Desktop" (X, Y, Wheel) relative axis */
+        0x05, 0x01,          /*      Usage Page (Desktop),       */
+        0x09, 0x30,          /*      Usage (X),                  */
+        0x09, 0x31,          /*      Usage (Y),                  */
+        0x09, 0x38,          /*      Usage (Wheel),              */
+        0x15, 0x81,          /*      Logical Minimum (-127),     */
+        0x26, 0x80, 0x00,    /*      Logical Maximum (128),      */
+        0x75, 0x08,          /*      Report Size (8),            */
+        0x95, 0x02,          /*      Report Count (3),           */
+        0x81, 0x06,          /*      Input (Variable, Relative), */
+
+        0xC0,                /*  End Collection,                 */
+      @end code
+
+      Matching structure is:
+
+      @code
+    struct report
+    {
+        uint8_t buttons;
+        int8_t x;
+        int8_t y;
+        int8_t wheel;
+    };
+      @end code
+    @end section
+
+
+    @section {Keyboard and text}
+
+      Keyboard sending scancodes is a legacy concept.  It existed a
+      time when keyboards where complex devices (for the time) and
+      making them send scancodes was already a big thing.  Today,
+      scancodes still exist but are a pain to handle.
+
+      For instance, when an user presses "A" on a french keyboard, the
+      keyboard actually sends the value 0x14 on the wire (meaning "Q"
+      key on an US keyboard).  Then host has to know the actual keymap
+      to emit the "a" (or "A", depending on caps state) text to the
+      application.
+
+      Here, we are designing a network-based protocol.  That implies the
+      client "Hardware" module has a complex OS running, and probably
+      resolved the scancode-to-text problem.  The text may even come
+      from a touchscreen or speech recognition.  Of course we dont want
+      to translate this to scancodes.
+
+      HID has support for text input not based on scancodes: HID can
+      handle unicode characters transport (HID Usage Tables, section
+      17, p. 108).  In the context of Foils, sending actual text
+      rather than scancodes is highly preferred.
+
+      Sending only unicode would be great if it could handle all
+      keyboard input.  Unfortunately, a keyboard also emits scancodes
+      with no associated text, but an associated meaning.  Basic
+      examples are control keys (Arrows, Backspace, Enter, Tab, F1 to
+      F12, etc.).  Most of these keys are not present as semantic
+      controls in the Consumer page either.  For a complete keyboard
+      emulation with control keys support, we can use an hybrid report
+      containing both standard keyboard scancodes for control keys,
+      and unicode for text.  Modifiers (Shift, Alt, Ctrl) are of
+      little interest in this context.
+
+      @code
+        0x05, 0x01,         /*  Usage Page (Desktop),               */
+        0x09, 0x06,         /*  Usage (Keyboard),                   */
+        0xA1, 0x01,         /*  Collection (Application),           */
+
+        /* 1 item containing one unicode character */
+        0x05, 0x10,         /*      Usage Page (Unicode),           */
+        0x08,               /*      Usage (00h),                    */
+        0x95, 0x01,         /*      Report Count (1),               */
+        0x75, 0x20,         /*      Report Size (32),               */
+        0x14,               /*      Logical Minimum (0),            */
+        0x25, 0xFF,         /*      Logical Maximum (-1),           */
+        0x81, 0x06,         /*      Input (Variable, Relative),     */
+
+        /* 1 item containing one keyboard scancode */
+        0x95, 0x01,         /*      Report Count (1),               */
+        0x75, 0x08,         /*      Report Size (8),                */
+        0x15, 0x00,         /*      Logical Minimum (0),            */
+        0x26, 0xFF, 0x00,   /*      Logical Maximum (255),          */
+        0x05, 0x07,         /*      Usage Page (Keyboard),          */
+        0x19, 0x00,         /*      Usage Minimum (None),           */
+        0x2A, 0xFF, 0x00,   /*      Usage Maximum (FFh),            */
+        0x81, 0x00,         /*      Input,                          */
+
+        0xC0                /*  End Collection                      */
+      @end code
+
+      Matching structure is:
+
+      @code
+    struct report
+    {
+        uint32_t unicode;
+        uint8_t scancode;
+    };
+      @end code
+    @end section
+
+  @end section
+
+@end section
+
+@section HTP {Protocol}
+
+  Protocol is based on librudp.  The Foils HID protocol is stacked
+  above librudp.  Foils HID commands are librudp "user" commands.
+
+  Standard HID descriptors are used as defined in the standard.
+
+  @section {Datatypes}
+
+    All the protocol uses big-endian data for custom fields and
+    structures.
+
+    @section {Header}
+      Foils HID header is small, it only contains a device ID and a
+      report ID.  Device ID is always relevant.  Report ID is not
+      always used.  It may be kept @tt 0 in such cases.
+
+      @table 4
+        @item Offset (byte) @item Size (byte) @item Name @item Description
+        @item 0 @item 4 @item Device ID @item Numeric constant
+          identifying the device the message is about.  This has to be
+          constant and unique inside the client. Server sends commands
+          about the declared devices.  Device IDs may be reused across
+          diffrent devices in time, as long as DEVICE_DROPPED has be
+          sent.
+        @item 4 @item 4 @item Report ID @item Report the message is
+          about. If no report is involved in the message, keep this to
+          0.
+      @end table
+
+    @end section
+
+    @section {Device new}
+      @label {device_new}
+
+      @table 4
+        @item Offset (byte) @item Size (byte) @item Name @item Description
+        @item 0 @item 64 @item Device Name @item UTF-8 character
+          string containing the device name. This must be
+          NUL-terminated. The trailing NUL must be in the 64 bytes.
+        @item 64 @item 32 @item Device Serial @item UTF-8 character
+          string containing the device serial name. This must be
+          NUL-terminated. The trailing NUL must be in the 32 bytes.
+        @item 96 @item 2 @item Zero @item Reserved field. Must be 0
+          for now.
+        @item 98 @item 2 @item Version @item Device version. This is
+          purely informational.
+        @item 100 @item 2 @item Descriptor offset @item Offset between
+          start of structure and start of the report descriptor blob.
+        @item 102 @item 2 @item Descriptor size @item Report
+          descriptor size, in bytes.
+        @item 104 @item 2 @item Physical offset @item Offset between
+          start of structure and start of the physical descriptor blob.
+        @item 106 @item 2 @item Physical size @item Physical
+          descriptor size, in bytes.
+        @item 108 @item 2 @item Strings offset @item Offset between
+          start of structure and start of the strings descriptor blob.
+        @item 110 @item 2 @item Strings size @item Strings
+          descriptor size, in bytes.
+        @item 112+ @item At least @tt{(Descriptor size + Physical size
+          + Strings size)} @item @item Then follows the descriptor
+          blobs, concatenated after the structure. Offsets to
+          descriptors are taken between first byte of the structure
+          (i.e. first character of "Device name") and first byte of
+          the relevant blob.
+      @end table
+    @end section
+
+  @end section
+
+  @section {Commands}
+
+    @table 4
+      @item Value @item Name @item Direction @item Description
+
+      @item 0 @item DEVICE_NEW @item Client to server @item Notifies
+        the server there is a new device available in the client. This
+        message contains a @xref {device_new} argument.
+
+      @item 1 @item DEVICE_DROPPED @item Client to server @item
+        Notifies the server the device is not available any more. All
+        the relevant fields are present in the header.
+
+      @item 2 @item DEVICE_OPEN @item Server to client @item Notifies
+        the client the server created a handle for the device. This
+        makes the device usable by the server afterwards.
+
+      @item 3 @item DEVICE_CLOSE @item Server to client @item
+        Notifies the client that the server no longer has any
+        reference to the device.
+
+      @item 4 @item FEATURE @item Both @item A feature report payload
+        follows the header. Report ID is in the header.
+
+      @item 5 @item DATA @item Both @item An input (client to server)
+        or output (server to client) report payload follows the
+        header. Report ID is in the header.
+
+      @item 6 @item GRAB @item Server to client @item Notifies the
+        client that the server now listens for input reports sent by
+        this device. Clients should not send input reports without a
+        prior grab.  Relevant Report ID is in the header.
+
+      @item 7 @item RELEASE @item Server to client @item Notifies the
+        client that the server does not listen for input reports any
+        more. Clients should not send input reports afterwards.
+        Relevant Report ID is in the header.
+
+      @item 8 @item FEATURE_SOLLICIT @item Server to client @item
+        Notifies the client that the server needs to receive a feature
+        report ASAP. Report ID is in the header.
+    @end table
+  @end section
+
+@end section
+
+@section HTP {Headers}
+
+  @section {Header list}
+    @insert {header} compound_table
+  @end section
+
+  @insert {header} all_compound_sections
+
+@end section
+
+@c @insert global_scope_section
