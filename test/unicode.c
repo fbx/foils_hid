@@ -65,6 +65,37 @@ static const uint8_t unicode_report_descriptor[] = {
     0xC0,               /* End Collection,                      */
 };
 
+#define HID_KEYBOARD_A 0x04
+#define HID_KEYBOARD_ENTER 0x28
+#define HID_KEYBOARD_BACKSPACE 0x2A
+#define HID_KEYBOARD_TAB 0x2B
+#define HID_KEYBOARD_RIGHTARROW 0x4F
+#define HID_KEYBOARD_LEFTARROW 0x50
+#define HID_KEYBOARD_DOWNARROW 0x51
+#define HID_KEYBOARD_UPARROW 0x52
+#define HID_KEYBOARD_HOME 0x4A
+#define HID_KEYBOARD_POWER 0x66
+#define HID_KEYBOARD_F1 0x3A
+
+#define HID_CONSUMER_SUB_CHANNEL_INCREMENT 0x171
+#define HID_CONSUMER_ALTERNATE_AUDIO_INCREMENT 0x173
+#define HID_CONSUMER_ALTERNATE_SUBTITLE_INCREMENT 0x175
+#define HID_CONSUMER_CHANNEL_INCREMENT 0x9c
+#define HID_CONSUMER_CHANNEL_DECREMENT 0x9d
+#define HID_CONSUMER_PLAY 0xb0
+#define HID_CONSUMER_PAUSE 0xb1
+#define HID_CONSUMER_RECORD 0xb2
+#define HID_CONSUMER_FAST_FORWARD 0xb3
+#define HID_CONSUMER_REWIND 0xb4
+#define HID_CONSUMER_SCAN_NEXT_TRACK 0xb5
+#define HID_CONSUMER_SCAN_PREVIOUS_TRACK 0xb6
+#define HID_CONSUMER_STOP 0xb7
+#define HID_CONSUMER_EJECT 0xb8
+#define HID_CONSUMER_MUTE 0xe2
+#define HID_CONSUMER_VOLUME_INCREMENT 0xe9
+#define HID_CONSUMER_VOLUME_DECREMENT 0xea
+
+
 static const
 struct foils_hid_device_descriptor descriptors[] =
 {
@@ -210,28 +241,28 @@ static void handle_codepoint(struct unicode_state *ks, uint32_t unicode)
         break;
 
     case 0x7f: // Backspace
-        send_kbd(ks, 42);
+        send_kbd(ks, HID_KEYBOARD_BACKSPACE);
         break;
 
     case 0x0a:
     case 0x0d: // Return
-        send_kbd(ks, 40);
+        send_kbd(ks, HID_KEYBOARD_ENTER);
         break;
 
     case CTRL('i'): // Tab
-        send_kbd(ks, 43);
+        send_kbd(ks, HID_KEYBOARD_TAB);
         break;
 
     case CTRL('t'): // sub
-        send_cons(ks, 0x175);
+        send_cons(ks, HID_CONSUMER_ALTERNATE_SUBTITLE_INCREMENT);
         break;
 
     case CTRL('u'): // audio
-        send_cons(ks, 0x173);
+        send_cons(ks, HID_CONSUMER_ALTERNATE_AUDIO_INCREMENT);
         break;
 
     case CTRL('v'): // video
-        send_cons(ks, 0x171);
+        send_cons(ks, HID_CONSUMER_SUB_CHANNEL_INCREMENT);
         break;
     }
 }
@@ -240,57 +271,57 @@ static void handle_control(struct unicode_state *ks, uint8_t code)
 {
     switch (code) {
     case 'A': // UP
-        send_kbd(ks, 82);
+        send_kbd(ks, HID_KEYBOARD_UPARROW);
         break;
 
     case 'B': // Down
-        send_kbd(ks, 81);
+        send_kbd(ks, HID_KEYBOARD_DOWNARROW);
         break;
 
     case 'C': // Right
-        send_kbd(ks, 79);
+        send_kbd(ks, HID_KEYBOARD_RIGHTARROW);
         break;
 
     case 'D': // Left
-        send_kbd(ks, 80);
+        send_kbd(ks, HID_KEYBOARD_LEFTARROW);
         break;
 
     case 'H': // Home
-        send_kbd(ks, 74);
+        send_kbd(ks, HID_KEYBOARD_HOME);
         break;
 
     case '~': // F5-F8
         switch (ks->control_arg) {
         case 5: // Page up: chan+
-            send_cons(ks, 0x9c);
+            send_cons(ks, HID_CONSUMER_CHANNEL_INCREMENT);
             break;
         case 6: // Page down: chan-
-            send_cons(ks, 0x9d);
+            send_cons(ks, HID_CONSUMER_CHANNEL_DECREMENT);
             break;
         case 15: // F5: power
-            send_kbd(ks, 102);
+            send_kbd(ks, HID_KEYBOARD_POWER);
             break;
         case 17: // F6: Rew
-            send_cons(ks, 0xb4);
+            send_cons(ks, HID_CONSUMER_REWIND);
             break;
         case 18: // F7: Play
-            send_cons(ks, 0xb0);
+            send_cons(ks, HID_CONSUMER_PLAY);
             break;
         case 19: // F8: FF
-            send_cons(ks, 0xb3);
+            send_cons(ks, HID_CONSUMER_FAST_FORWARD);
             break;
 
         case 20: // F9: eject
-            send_cons(ks, 0xb8);
+            send_cons(ks, HID_CONSUMER_EJECT);
             break;
         case 21: // F10: vol-
-            send_cons(ks, 0xea);
+            send_cons(ks, HID_CONSUMER_VOLUME_DECREMENT);
             break;
         case 23: // F11: vol+
-            send_cons(ks, 0xe9);
+            send_cons(ks, HID_CONSUMER_VOLUME_INCREMENT);
             break;
         case 24: // F12: 
-//            send_cons(ks, 0xb3);
+//            send_cons(ks, HID_CONSUMER_FAST_FORWARD);
             break;
         }
     }
@@ -300,7 +331,7 @@ static void handle_func(struct unicode_state *ks, uint8_t code)
 {
     switch (code) {
     case 'P'...'S': // F1-F4
-        send_kbd(ks, code-'P'+58);
+        send_kbd(ks, code-'P'+HID_KEYBOARD_F1);
         break;
     }
 }
