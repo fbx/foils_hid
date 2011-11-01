@@ -41,84 +41,58 @@ int tty_break(void)
     modmodes.c_cc[VTIME] = 0;
     return ioctl(fileno(stdin), TCSETAW, &modmodes);
 #endif
+    return 0;
 }
 
 #define KEY_CTRL(x) (x-'a'+1)
-
-static void handle_codepoint(struct term_input_state *ks, uint32_t unicode)
-{
-    switch (unicode) {
-    default:
-        return ks->handler(ks, 1, unicode);
-
-    case 0x7f: // Backspace
-        return ks->handler(ks, 0, TERM_INPUT_BACKSPACE);
-
-    case KEY_CTRL('a')...KEY_CTRL('z'):
-        return ks->handler(ks, 0, TERM_INPUT_CTRL(unicode));
-    }
-}
+#define SHIFT(x) (ks->control_arg2 == 2 ? x : 0)
 
 static void handle_control(struct term_input_state *ks, uint8_t code)
 {
-    switch (ks->control_arg2) {
-    case 0:
-    case 1:
-        switch (code) {
-        case 'A': // UP
-            return ks->handler(ks, 0, TERM_INPUT_UP);
-        case 'B': // Down
-            return ks->handler(ks, 0, TERM_INPUT_DOWN);
-        case 'C': // Right
-            return ks->handler(ks, 0, TERM_INPUT_RIGHT);
-        case 'D': // Left
-            return ks->handler(ks, 0, TERM_INPUT_LEFT);
-        case 'H': // Home
-            return ks->handler(ks, 0, TERM_INPUT_HOME);
-        case 'F': // End
-            return ks->handler(ks, 0, TERM_INPUT_END);
-        case 'P'...'S': // F1-F4
-            return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 1));
-
-        case '~': // F5-F8
-            switch (ks->control_arg) {
-            case 5: // Page up
-                return ks->handler(ks, 0, TERM_INPUT_PAGE_UP);
-            case 6: // Page down
-                return ks->handler(ks, 0, TERM_INPUT_PAGE_DOWN);
-            case 15: // F5
-                return ks->handler(ks, 0, TERM_INPUT_F(5));
-            case (17) ... (21): // F6-F10
-                return ks->handler(ks, 0, TERM_INPUT_F(ks->control_arg - 17 + 6));
-            case (23) ... (24): // F11-F12
-                return ks->handler(ks, 0, TERM_INPUT_F(ks->control_arg - 23 + 11));
-            }
-            break;
+    switch (code) {
+    case '~':
+        switch (ks->control_arg) {
+        case 5: // Page up
+            return ks->handler(ks, 0, TERM_INPUT_PAGE_UP);
+        case 6: // Page down
+            return ks->handler(ks, 0, TERM_INPUT_PAGE_DOWN);
+        case 15: // F5
+            return ks->handler(ks, 0, TERM_INPUT_F(5));
+        case (17) ... (21): // F6-F10
+            return ks->handler(ks, 0, TERM_INPUT_F(
+                                   ks->control_arg - 17 + 6
+                                   + SHIFT(12)));
+        case (23) ... (24): // F11-F12
+            return ks->handler(ks, 0, TERM_INPUT_F(
+                                   ks->control_arg - 23 + 11
+                                   + SHIFT(12)));
         }
-        break;
-
-    case 2:
-        switch (code) {
-
-        case 'P'...'S': // F13-F16
+    case 'A': // UP
+        return ks->handler(ks, 0, TERM_INPUT_UP);
+    case 'B': // Down
+        return ks->handler(ks, 0, TERM_INPUT_DOWN);
+    case 'C': // Right
+        return ks->handler(ks, 0, TERM_INPUT_RIGHT);
+    case 'D': // Left
+        return ks->handler(ks, 0, TERM_INPUT_LEFT);
+    case 'H': // Home
+        return ks->handler(ks, 0, TERM_INPUT_HOME);
+    case 'F': // End
+        return ks->handler(ks, 0, TERM_INPUT_END);
+    case 'P'...'S':
+        switch (ks->control_arg) {
+        case 'O': // F1-F4
+            return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 1));
+        case 2: // F13-F16
             return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 13));
-
-        case '~': // F17-F24
-            switch (ks->control_arg) {
-            case 15: // F17
-                return ks->handler(ks, 0, TERM_INPUT_F(17));
-            case (17)...(21): // F18-F22
-                return ks->handler(ks, 0, TERM_INPUT_F(ks->control_arg - 17 + 18));
-            case (23)...(24): // F23-F24
-                return ks->handler(ks, 0, TERM_INPUT_F(ks->control_arg - 23 + 23));
-            }
-            break;
-
         }
         break;
     }
 
-    printf("Unknown control '%d;%d%c'\n", ks->control_arg, ks->control_arg2, code);
+    if (ks->control_arg2)
+        printf("Unknown control '%d;%d%c'\n", ks->control_arg, ks->control_arg2, code);
+    else
+        printf("Unknown control '%d%c'\n", ks->control_arg, code);
 }
 
 static
@@ -146,62 +120,87 @@ void term_input_update(
             ks->left--;
         }
 
-        if (ks->left == 0) {
-            switch (ks->state) {
-            case IDLE:
-                if (ks->code == 0x1b)
-                    ks->state = ESCAPE;
-                else
-                    ks->handler(ks, 1, ks->code);
+        if (ks->left)
+            continue;
+
+        /* printf("Handling... code: %02x, state: %02x, ca: %02x, ca2: %02x\n", */
+        /*        ks->code, ks->state, ks->control_arg, ks->control_arg2); */
+
+        switch (ks->state) {
+        case IDLE:
+            switch (ks->code) {
+            default:
+                ks->handler(ks, 1, ks->code);
                 break;
 
-            case ESCAPE:
-                switch (ks->code) {
-                case '[':
-                    ks->control_arg = 0;
-                    ks->control_arg2 = 0;
-                    ks->state = CONTROL;
-                    break;
-                case 'O':
-                    ks->control_arg = 1;
-                    ks->control_arg2 = 0;
-                    ks->state = CONTROL;
-                default:
-                    ks->state = IDLE;
-                    break;
-                }
+            case 0x1b: // esc
+                ks->state = ESCAPE;
+                ks->control_arg = 0;
+                ks->control_arg2 = 0;
                 break;
 
-            case CONTROL:
-                switch (ks->code) {
-                case ';':
-                    ks->state = CONTROL2;
-                    break;
-                case '0'...'9':
-                    ks->control_arg *= 10;
-                    ks->control_arg += ks->code - '0';
-                    break;
-                default:
-                    handle_control(ks, ks->code);
-                    ks->state = IDLE;
-                    break;
-                }
+            case 0x7f: // Backspace
+                ks->handler(ks, 0, TERM_INPUT_BACKSPACE);
                 break;
 
-            case CONTROL2:
-                switch (ks->code) {
-                case '0'...'9':
-                    ks->control_arg2 *= 10;
-                    ks->control_arg2 += ks->code - '0';
-                    break;
-                default:
-                    handle_control(ks, ks->code);
-                    ks->state = IDLE;
-                    break;
-                }
+            case KEY_CTRL('a')...KEY_CTRL('z'):
+                ks->handler(
+                    ks, 0,
+                    TERM_INPUT_CTRL(ks->code - KEY_CTRL('a') + 'a'));
                 break;
             }
+            break;
+
+        case ESCAPE:
+            switch (ks->code) {
+            case 0x1b: // esc
+                ks->state = ESCAPE;
+                ks->control_arg = 0;
+                ks->control_arg2 = 0;
+                break;
+            case '[':
+                ks->state = CONTROL;
+                break;
+            case 'O':
+                ks->control_arg = 'O';
+                ks->state = CONTROL;
+                break;
+            default:
+                ks->state = IDLE;
+                break;
+            }
+            break;
+
+        case CONTROL:
+            switch (ks->code) {
+            case ';':
+                ks->state = CONTROL2;
+                break;
+            case '0'...'9':
+                ks->control_arg *= 10;
+                ks->control_arg += ks->code - '0';
+                break;
+            default:
+                handle_control(ks, ks->code);
+                ks->state = IDLE;
+                break;
+            }
+            break;
+
+        case CONTROL2:
+            switch (ks->code) {
+            case '0'...'9':
+                ks->control_arg2 *= 10;
+                ks->control_arg2 += ks->code - '0';
+                break;
+            default:
+                handle_control(ks, ks->code);
+                ks->state = IDLE;
+                break;
+            }
+            break;
         }
+        ks->code = 0;
     }
 }
 

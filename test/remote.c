@@ -192,6 +192,8 @@ void input_handler(
     if (is_unicode)
         return send_unicode(ks, code);
 
+    mapping_dump_target(code);
+
     const struct target_code *target = mapping_get(code);
 
     switch (target->report) {

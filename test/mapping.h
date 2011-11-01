@@ -32,6 +32,7 @@ struct target_code
 };
 
 const struct target_code *mapping_get(enum term_input_key key);
+void mapping_dump_target(enum term_input_key key);
 void mapping_dump(void);
 
 #endif
