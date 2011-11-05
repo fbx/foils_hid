@@ -144,41 +144,81 @@ static const struct foils_hid_handler handler =
     .feature_report_sollicit = feature_report_sollicit,
 };
 
+struct unicode_state;
+
+typedef void code_sender_t(struct unicode_state *ks, uint32_t code);
+
 struct unicode_state {
     struct term_input_state input_state;
+    struct ela_el *el;
     struct foils_hid *client;
+    struct ela_event_source *release;
+    code_sender_t *release_sender;
+    uint32_t release_code;
 };
+
+static void release_send(struct unicode_state *ks)
+{
+    ks->release_sender(ks, ks->release_code);
+    ks->release_sender = NULL;
+}
+
+static
+void release_cb(
+    struct ela_event_source *source, int fd,
+    uint32_t mask, void *data)
+{
+    struct unicode_state *ks = data;
+    release_send(ks);
+}
+
+static void release_post(
+    struct unicode_state *ks,
+    code_sender_t *release_sender,
+    uint32_t release_code)
+{
+    if (ks->release_sender) {
+        release_send(ks);
+        ela_remove(ks->el, ks->release);
+    }
+
+    ks->release_sender = release_sender;
+    ks->release_code = release_code;
+
+    struct timeval tv = {0, 100000};
+    ela_set_timeout(ks->el, ks->release, &tv, ELA_EVENT_ONCE);
+    ela_add(ks->el, ks->release);
+}
 
 static void send_unicode(struct unicode_state *ks, uint32_t code)
 {
     foils_hid_input_report_send(ks->client, 0, 1, 1, &code, sizeof(code));
-    usleep(100000);
-    code = 0;
-    foils_hid_input_report_send(ks->client, 0, 1, 1, &code, sizeof(code));
+    if (code)
+        release_post(ks, send_unicode, 0);
 }
 
-static void send_kbd(struct unicode_state *ks, int8_t code)
+static void send_kbd(struct unicode_state *ks, uint32_t _code)
 {
+    uint8_t code = _code;
     foils_hid_input_report_send(ks->client, 0, 2, 1, &code, sizeof(code));
-    usleep(100000);
-    code = 0;
-    foils_hid_input_report_send(ks->client, 0, 2, 1, &code, sizeof(code));
+    if (code)
+        release_post(ks, send_kbd, 0);
 }
 
-static void send_cons(struct unicode_state *ks, int16_t code)
+static void send_cons(struct unicode_state *ks, uint32_t _code)
 {
+    uint16_t code = _code;
     foils_hid_input_report_send(ks->client, 0, 3, 1, &code, sizeof(code));
-    usleep(100000);
-    code = 0;
-    foils_hid_input_report_send(ks->client, 0, 3, 1, &code, sizeof(code));
+    if (code)
+        release_post(ks, send_cons, 0);
 }
 
-static void send_sysctl(struct unicode_state *ks, int8_t data)
+static void send_sysctl(struct unicode_state *ks, uint32_t _code)
 {
-    foils_hid_input_report_send(ks->client, 0, 4, 1, &data, sizeof(data));
-    usleep(100000);
-    data = 0;
-    foils_hid_input_report_send(ks->client, 0, 4, 1, &data, sizeof(data));
+    uint8_t code = _code;
+    foils_hid_input_report_send(ks->client, 0, 4, 1, &code, sizeof(code));
+    if (code)
+        release_post(ks, send_sysctl, 0);
 }
 
 static
@@ -230,6 +270,7 @@ int main(int argc, char **argv)
 
     struct unicode_state ks = {
         .client = &client,
+        .el = el,
     };
 
     mapping_dump();
@@ -237,6 +278,8 @@ int main(int argc, char **argv)
     term_input_init(&ks.input_state, input_handler, el);
     foils_hid_client_connect_hostname(&client, argv[1], 904, 0);
     foils_hid_device_enable(&client, 0);
+
+    ela_source_alloc(el, release_cb, &ks, &ks.release);
 
     ela_run(el);
 
