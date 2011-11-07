@@ -81,10 +81,13 @@ static void handle_control(struct term_input_state *ks, uint8_t code)
         return ks->handler(ks, 0, TERM_INPUT_END);
     case 'P'...'S':
         switch (ks->control_arg) {
-        case 'O': // F1-F4
+        case 'O':
+            // F1-F4
             return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 1));
-        case 2: // F13-F16
-            return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 13));
+        case 1:
+            if (ks->control_arg2 == 2)
+                // F13-F16
+                return ks->handler(ks, 0, TERM_INPUT_F(code - 'P' + 13));
         }
         break;
     }
