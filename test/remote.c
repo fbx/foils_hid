@@ -154,6 +154,7 @@ struct unicode_state {
     struct foils_hid *client;
     struct ela_event_source *release;
     code_sender_t *release_sender;
+    uint32_t current_code;
     uint32_t release_code;
 };
 
@@ -193,32 +194,24 @@ static void release_post(
 static void send_unicode(struct unicode_state *ks, uint32_t code)
 {
     foils_hid_input_report_send(ks->client, 0, 1, 1, &code, sizeof(code));
-    if (code)
-        release_post(ks, send_unicode, 0);
 }
 
 static void send_kbd(struct unicode_state *ks, uint32_t _code)
 {
     uint8_t code = _code;
     foils_hid_input_report_send(ks->client, 0, 2, 1, &code, sizeof(code));
-    if (code)
-        release_post(ks, send_kbd, 0);
 }
 
 static void send_cons(struct unicode_state *ks, uint32_t _code)
 {
     uint16_t code = _code;
     foils_hid_input_report_send(ks->client, 0, 3, 1, &code, sizeof(code));
-    if (code)
-        release_post(ks, send_cons, 0);
 }
 
 static void send_sysctl(struct unicode_state *ks, uint32_t _code)
 {
     uint8_t code = _code;
     foils_hid_input_report_send(ks->client, 0, 4, 1, &code, sizeof(code));
-    if (code)
-        release_post(ks, send_sysctl, 0);
 }
 
 static
@@ -235,18 +228,36 @@ void input_handler(
     mapping_dump_target(code);
 
     const struct target_code *target = mapping_get(code);
+    code_sender_t *sender;
+    uint8_t repeatable = 0;
 
     switch (target->report) {
     case TARGET_UNICODE:
-        return send_unicode(ks, target->usage);
-    case TARGET_KEYBOARD:
-        return send_kbd(ks, target->usage);
-    case TARGET_CONSUMER:
-        return send_cons(ks, target->usage);
-    case TARGET_DESKTOP:
-        return send_sysctl(ks, target->usage);
-    default:
+        sender = send_unicode;
         break;
+    case TARGET_KEYBOARD:
+        sender = send_kbd;
+        repeatable = 1;
+        break;
+    case TARGET_CONSUMER:
+        sender = send_cons;
+        break;
+    case TARGET_DESKTOP:
+        sender = send_sysctl;
+        break;
+    default:
+        return;
+    }
+
+    if (repeatable
+        && target->usage == ks->current_code
+        && sender == ks->release_sender) {
+        ela_remove(ks->el, ks->release);
+        ela_add(ks->el, ks->release);
+    } else {
+        sender(ks, target->usage);
+        release_post(ks, sender, 0);
+        ks->current_code = target->usage;
     }
 }
 
