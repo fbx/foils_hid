@@ -71,7 +71,7 @@ int foils_hid_init(
     rudp_error_t err = rudp_init(&fh->rudp, el,
                                  RUDP_HANDLER_DEFAULT);
     if ( err )
-        return err;
+        goto out;
 
     err = rudp_hid_client_init(&fh->client, &fh->rudp, &client_handler);
     if ( err )
@@ -87,6 +87,8 @@ int foils_hid_init(
     return 0;
 deinit:
     rudp_deinit(&fh->rudp);
+out:
+    free(fh->ga);
     return err;
 }
 
