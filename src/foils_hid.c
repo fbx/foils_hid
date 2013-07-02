@@ -198,7 +198,6 @@ void foils_hid_client_connect_ipv4(
     }
 }
 
-
 void foils_hid_client_connect_ipv6(
     struct foils_hid *fh,
     const struct in6_addr *address,
@@ -208,6 +207,23 @@ void foils_hid_client_connect_ipv6(
         return;
 
     rudp_hid_client_set_ipv6(&fh->client, address, port);
+
+    fh->state = FOILS_HID_CONNECTING;
+    if (rudp_hid_client_connect(&fh->client)) {
+        fh->state = FOILS_HID_IDLE;
+        fh->handler->status(fh, FOILS_HID_RESOLVE_FAILED);
+    }
+}
+
+void foils_hid_client_connect(
+    struct foils_hid *fh,
+    const struct sockaddr *address,
+    socklen_t addrlen)
+{
+    if (fh->state == FOILS_HID_CONNECTED)
+        return;
+
+    rudp_hid_client_set_addr(&fh->client, address, addrlen);
 
     fh->state = FOILS_HID_CONNECTING;
     if (rudp_hid_client_connect(&fh->client)) {

@@ -25,6 +25,8 @@
 #include <rudp/client.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 struct rudp_hid_client;
 
@@ -209,6 +211,10 @@ void rudp_hid_client_set_ipv4(
 
    @this sets the IPv6 to connect to
 
+   @deprecated
+   This function should not be used anymore, since it does not allow
+   to set the IPv6 scope. Use @ref foils_hid_client_connect instead.
+
    @param client Client context
    @param address IPv6 address, in @tt in6_addr usual order
    @param port Port to connect to
@@ -219,8 +225,33 @@ void rudp_hid_client_set_ipv6(
     const struct in6_addr *address,
     const uint16_t port)
 {
-    return rudp_client_set_ipv6(
-        &client->base, address, port);
+    struct sockaddr_in6 addr6;
+
+    memset(&addr6, 0, sizeof (addr6));
+    addr6.sin6_family = AF_INET6;
+    addr6.sin6_addr = *address;
+    addr6.sin6_port = ntohs(port);
+
+    rudp_client_set_addr(
+        &client->base, (struct sockaddr *)&addr6, sizeof (addr6));
+}
+
+/**
+   @mgroup {Connection management}
+
+   @this sets the IPv6 to connect to
+
+   @param client Client context
+   @param address IPv4 or IPv6 address
+   @param addrlen Size of the address structure
+*/
+static inline
+void rudp_hid_client_set_addr(
+    struct rudp_hid_client *client,
+    const struct sockaddr *address,
+    socklen_t addrlen)
+{
+    rudp_client_set_addr(&client->base, address, addrlen);
 }
 
 /**

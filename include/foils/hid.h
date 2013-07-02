@@ -224,6 +224,10 @@ void foils_hid_client_connect_ipv4(
 /**
    @this tries to connect to the given IPv6 address and port
 
+   @deprecated
+   This function should not be used anymore, since it does not allow
+   to set the IPv6 scope. Use @ref foils_hid_client_connect instead.
+
    @param client Client context
    @param address IPv6 address, in @tt in6_addr usual order
    @param port Port to connect to
@@ -232,5 +236,17 @@ void foils_hid_client_connect_ipv6(
     struct foils_hid *client,
     const struct in6_addr *address,
     const uint16_t port);
+
+/**
+   @this tries to connect to the given address
+
+   @param client Client context
+   @param address IPv4 or IPv6 address
+   @param addrlen Size of the address structure
+*/
+void foils_hid_client_connect(
+    struct foils_hid *client,
+    const struct sockaddr *address,
+    socklen_t addrlen);
 
 #endif
