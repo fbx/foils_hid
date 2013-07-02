@@ -160,8 +160,10 @@ struct unicode_state {
 
 static void release_send(struct unicode_state *ks)
 {
-    ks->release_sender(ks, ks->release_code);
-    ks->release_sender = NULL;
+    if (ks->release_sender) {
+        ks->release_sender(ks, ks->release_code);
+        ks->release_sender = NULL;
+    }
 }
 
 static
