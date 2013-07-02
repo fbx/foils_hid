@@ -270,8 +270,8 @@ int main(int argc, char **argv)
 
     struct foils_hid client;
 
-    if ( argc < 2 ) {
-        fprintf(stderr, "Usage: %s ip\n", argv[0]);
+    if ( argc < 3 ) {
+        fprintf(stderr, "Usage: %s ip port\n", argv[0]);
         return 1;
     }
 
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
     mapping_dump();
 
     term_input_init(&ks.input_state, input_handler, el);
-    foils_hid_client_connect_hostname(&client, argv[1], 904, 0);
+    foils_hid_client_connect_hostname(&client, argv[1], atoi(argv[2]), 0);
     foils_hid_device_enable(&client, 0);
 
     ela_source_alloc(el, release_cb, &ks, &ks.release);
