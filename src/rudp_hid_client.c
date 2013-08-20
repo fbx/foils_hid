@@ -10,6 +10,7 @@
  */
 
 #include <string.h>
+#include <alloca.h>
 #include <foils/rudp_hid_client.h>
 
 enum foils_hid_command
@@ -94,9 +95,10 @@ int rudp_hid_device_new(
     struct packet {
         struct foils_hid_header header[1];
         struct foils_hid_device_new dev[1];
-        uint8_t data[blob_size];
-    } packet[1];
+        uint8_t data[];
+    } *packet;
 
+    packet = alloca (sizeof (*packet) + blob_size);
     memset(packet, 0, sizeof(*packet));
 
     packet->header->device_id = htonl(device_id);
