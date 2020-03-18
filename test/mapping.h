@@ -12,6 +12,7 @@
 #ifndef MAPPING_H_
 #define MAPPING_H_
 
+#include <stdbool.h>
 #include <inttypes.h>
 #include "term_input.h"
 
@@ -28,11 +29,11 @@ struct target_code
 {
     enum target_code_type report;
     uint32_t usage;
-    const char *name;
+    char name[32];
 };
 
-const struct target_code *mapping_get(enum term_input_key key);
-void mapping_dump_target(enum term_input_key key);
+bool mapping_get(bool is_unicode, uint32_t code,struct target_code *out_target);
+void mapping_dump_target(const struct target_code *target);
 void mapping_dump(void);
 
 #endif

@@ -223,17 +223,15 @@ void input_handler(
     uint32_t code)
 {
     struct unicode_state *ks = (void*)input;
+    struct target_code target;
 
-    if (is_unicode)
-        return send_unicode(ks, code);
+    if (!mapping_get(is_unicode, code, &target))
+        return;
 
-    mapping_dump_target(code);
-
-    const struct target_code *target = mapping_get(code);
     code_sender_t *sender;
     uint8_t repeatable = 0;
 
-    switch (target->report) {
+    switch (target.report) {
     case TARGET_UNICODE:
         sender = send_unicode;
         break;
@@ -251,15 +249,17 @@ void input_handler(
         return;
     }
 
+    printf("Sending %s\n", target.name);
+
     if (repeatable
-        && target->usage == ks->current_code
+        && target.usage == ks->current_code
         && sender == ks->release_sender) {
         ela_remove(ks->el, ks->release);
         ela_add(ks->el, ks->release);
     } else {
-        sender(ks, target->usage);
+        sender(ks, target.usage);
         release_post(ks, sender, 0);
-        ks->current_code = target->usage;
+        ks->current_code = target.usage;
     }
 }
 

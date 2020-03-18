@@ -11,6 +11,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "mapping.h"
 #include "term_input.h"
 
@@ -199,37 +200,56 @@ struct target_code targets[TERM_INPUT_COUNT] =
     [TERM_INPUT_PAGE_DOWN] = {TARGET_CONSUMER, HID_CONSUMER_CHANNEL_DECREMENT, "Chan-"},
 };
 
-const struct target_code *mapping_get(enum term_input_key key)
+bool mapping_get(bool is_unicode, uint32_t code, struct target_code *out_target)
 {
-    if (key >= TERM_INPUT_COUNT)
-        return NULL;
+    if (!out_target)
+        return false;
 
-    return &targets[key];
-}
+    memset(out_target, 0, sizeof (*out_target));
 
-void mapping_dump_target(enum term_input_key key)
-{
-    const struct target_code *target = mapping_get(key);
+    if (is_unicode) {
+        /* dumb utf-32 to utf-8 conversion */
+        if (code < 0x0080) {
+            out_target->name[0] = code;
+        } else if (code < 0x0800) {
+            out_target->name[0] = 0xc0 | (code >> 6);
+            out_target->name[1] = 0x80 | (code & 0x3f);
+        } else if (code < 0x10000) {
+            out_target->name[0] = 0xe0 | (code >> 12);
+            out_target->name[1] = 0x80 | ((code >> 6) & 0x3f);
+            out_target->name[2] = 0x80 | ((code >> 0) & 0x3f);
+        } else if (code < 0x200000) {
+            out_target->name[0] = 0xf0 | (code >> 18);
+            out_target->name[1] = 0x80 | ((code >> 12) & 0x3f);
+            out_target->name[2] = 0x80 | ((code >> 6) & 0x3f);
+            out_target->name[3] = 0x80 | ((code >> 0) & 0x3f);
+        } else {
+            return false;
+        }
+        out_target->report = TARGET_UNICODE;
+        out_target->usage = code;
+    } else {
+        if (code >= TERM_INPUT_COUNT)
+            return false;
+        *out_target = targets[code];
+    }
 
-    if (target && target->report)
-        printf("%s: %s\n", target_name[key], target->name);
-    else
-        printf("%s: [none]\n",
-               key < TERM_INPUT_COUNT ? target_name[key] : "Unknown");
+    return true;
 }
 
 void mapping_dump()
 {
     uint32_t i;
 
+    printf("Input mapping:\n");
     for (i=0; i<TERM_INPUT_COUNT; ++i) {
         const char *name = target_name[i];
-        const struct target_code *code = mapping_get(i);
+        const struct target_code *code = &targets[i];
 
         if (code->report == TARGET_NONE)
             continue;
 
-        printf("%s: %s\n", name, code->name);
+        printf("  %s: %s\n", name, code->name);
     }
 }
 
