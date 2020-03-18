@@ -1,0 +1,6 @@
+[submodule "subprojects/libela"]
+	path = subprojects/libela
+	url = https://github.com/fbx/libela.git
+[submodule "subprojects/librudp"]
+	path = subprojects/librudp
+	url = https://github.com/fbx/librudp.git
