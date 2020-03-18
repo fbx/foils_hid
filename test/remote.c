@@ -56,9 +56,9 @@ static const uint8_t unicode_report_descriptor[] = {
     0x95, 0x01,         /*  Report Count (1),                   */
     0x75, 0x10,         /*  Report Size (16),                   */
     0x19, 0x00,         /*  Usage Minimum (Consumer Control),   */
-    0x2A, 0x8C, 0x02,   /*  Usage Maximum (AC Send),            */
+    0x2A, 0xB0, 0x0F,   /*  Usage Maximum (AC Debug Overlay),   */
     0x15, 0x00,         /*  Logical Minimum (0),                */
-    0x26, 0x8C, 0x02,   /*  Logical Maximum (652),              */
+    0x26, 0xB0, 0x0F,   /*  Logical Maximum (4016),             */
     0x80,               /*  Input,                              */
     0xC0,               /* End Collection,                      */
 
