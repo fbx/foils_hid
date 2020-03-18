@@ -52,6 +52,10 @@ static void handle_control(struct term_input_state *ks, uint8_t code)
     switch (code) {
     case '~':
         switch (ks->control_arg) {
+        case 2: // Insert
+            return ks->handler(ks, 0, TERM_INPUT_INS);
+        case 3: // Delete
+            return ks->handler(ks, 0, TERM_INPUT_DEL);
         case 5: // Page up
             return ks->handler(ks, 0, TERM_INPUT_PAGE_UP);
         case 6: // Page down
@@ -69,12 +73,28 @@ static void handle_control(struct term_input_state *ks, uint8_t code)
         }
         break;
     case 'A': // UP
+        if (ks->control_arg == 1 && ks->control_arg2 == 2)
+            return ks->handler(ks, 0, TERM_INPUT_SHIFT_UP);
+        else if (ks->control_arg == 1 && ks->control_arg2 == 5)
+            return ks->handler(ks, 0, TERM_INPUT_CTRL_UP);
         return ks->handler(ks, 0, TERM_INPUT_UP);
     case 'B': // Down
+        if (ks->control_arg == 1 && ks->control_arg2 == 2)
+            return ks->handler(ks, 0, TERM_INPUT_SHIFT_DOWN);
+        else if (ks->control_arg == 1 && ks->control_arg2 == 5)
+            return ks->handler(ks, 0, TERM_INPUT_CTRL_DOWN);
         return ks->handler(ks, 0, TERM_INPUT_DOWN);
     case 'C': // Right
+        if (ks->control_arg == 1 && ks->control_arg2 == 2)
+            return ks->handler(ks, 0, TERM_INPUT_SHIFT_RIGHT);
+        else if (ks->control_arg == 1 && ks->control_arg2 == 5)
+            return ks->handler(ks, 0, TERM_INPUT_CTRL_RIGHT);
         return ks->handler(ks, 0, TERM_INPUT_RIGHT);
     case 'D': // Left
+        if (ks->control_arg == 1 && ks->control_arg2 == 2)
+            return ks->handler(ks, 0, TERM_INPUT_SHIFT_LEFT);
+        else if (ks->control_arg == 1 && ks->control_arg2 == 5)
+            return ks->handler(ks, 0, TERM_INPUT_CTRL_LEFT);
         return ks->handler(ks, 0, TERM_INPUT_LEFT);
     case 'H': // Home
         return ks->handler(ks, 0, TERM_INPUT_HOME);
