@@ -67,6 +67,7 @@ static void handle_control(struct term_input_state *ks, uint8_t code)
                                    ks->control_arg - 23 + 11
                                    + SHIFT(12)));
         }
+        break;
     case 'A': // UP
         return ks->handler(ks, 0, TERM_INPUT_UP);
     case 'B': // Down
