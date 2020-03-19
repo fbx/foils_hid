@@ -60,8 +60,10 @@ static void handle_control(struct term_input_state *ks, uint8_t code)
             return ks->handler(ks, 0, TERM_INPUT_PAGE_UP);
         case 6: // Page down
             return ks->handler(ks, 0, TERM_INPUT_PAGE_DOWN);
-        case 15: // F5
-            return ks->handler(ks, 0, TERM_INPUT_F(5));
+        case (11) ... (15): // F1-F5
+            return ks->handler(ks, 0, TERM_INPUT_F(
+                                   ks->control_arg - 11 + 1
+                                   + SHIFT(12)));
         case (17) ... (21): // F6-F10
             return ks->handler(ks, 0, TERM_INPUT_F(
                                    ks->control_arg - 17 + 6
